@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMAC Voter Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .sections {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            flex: 1;
+            min-width: 350px;
+            max-width: 500px;
+        }
+
+        .section h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+        }
+
+        .result.success {
+            background: #f0fff4;
+            border: 1px solid #9ae6b4;
+            color: #22543d;
+        }
+
+        .result.error {
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            color: #742a2a;
+        }
+
+        .result.info {
+            background: #ebf8ff;
+            border: 1px solid #90cdf4;
+            color: #2c5282;
+        }
+
+        .status-item {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: #f7fafc;
+            border-radius: 5px;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #4a5568;
+            display: inline-block;
+            min-width: 120px;
+        }
+
+        .match {
+            color: #22543d;
+            font-weight: bold;
+        }
+
+        .no-match {
+            color: #742a2a;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .sections {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .section {
+                max-width: 100%;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1> HMAC Voter Authentication </h1>
+            <p>Secure message authentication using SHA-256</p>
+        </div>
+
+        <div class="sections">
+            <!-- Section 1: Sender -->
+            <div class="section">
+                <h2>Sender - Compute & Send Hash</h2>
+                
+                <div class="form-group">
+                    <label for="message">Message:</label>
+                    <input type="text" id="message" placeholder="Enter your message here" value="Vote for candidate A">
+                </div>
+
+                <div class="form-group">
+                    <label for="secret">Secret:</label>
+                    <input type="text" id="secret" placeholder="Shared secret key" value="shared_secret_123">
+                </div>
+
+                <div class="form-group">
+                    <label for="receiver-ip">Receiver IP:</label>
+                    <input type="text" id="receiver-ip" placeholder="Receiver IP address" value="192.168.1.100">
+                </div>
+
+                <button id="send-btn" onclick="sendMessage()">Compute & Send</button>
+
+                <div id="sender-result"></div>
+            </div>
+
+            <!-- Section 2: Receiver -->
+            <div class="section">
+                <h2>Receiver - Verify Incoming Hash</h2>
+                
+                <button id="status-btn" onclick="checkStatus()">Check Status</button>
+
+                <div id="receiver-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Student comment: Helper function to create result elements
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.innerHTML = message;
+        }
+
+        // Student comment: Show loading state
+        function setLoading(buttonId, loading = true) {
+            const button = document.getElementById(buttonId);
+            if (loading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="loading"></span>Processing...';
+            } else {
+                button.disabled = false;
+                button.innerHTML = buttonId === 'send-btn' ? 'Compute & Send' : 'Check Status';
+            }
+        }
+
+        // Student comment: Send message to server
+        async function sendMessage() {
+            const message = document.getElementById('message').value.trim();
+            const secret = document.getElementById('secret').value.trim();
+            const receiverIp = document.getElementById('receiver-ip').value.trim();
+
+            // Student comment: Validation
+            if (!message || !secret || !receiverIp) {
+                showResult('sender-result', 'Please fill in all fields', 'error');
+                return;
+            }
+
+            setLoading('send-btn', true);
+
+            try {
+                const response = await fetch('http://localhost:8080', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        secret: secret
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('sender-result', 
+                        `Sent successfully!<br><br>` +
+                        `<strong>Hash:</strong><br>${data.hash}<br><br>` +
+                        `<strong>Status:</strong> Sent to ${receiverIp}`, 
+                        'success');
+                } else {
+                    showResult('sender-result', 
+                        `Error: ${data.error || 'Unknown error occurred'}`, 
+                        'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                let errorMessage = 'Connection error. Make sure the sender server is running on localhost:8080.';
+                
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Cannot connect to sender server. Is it running on localhost:8080?';
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage = 'Network error. Check your connection and server status.';
+                }
+                
+                showResult('sender-result', errorMessage, 'error');
+            } finally {
+                setLoading('send-btn', false);
+            }
+        }
+
+        // Student comment: Check receiver status
+        async function checkStatus() {
+            setLoading('status-btn', true);
+
+            try {
+                const response = await fetch('http://localhost:8080/status');
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (data.result && data.result !== 'No data received yet') {
+                        const isMatch = data.result.includes('Match');
+                        const resultClass = isMatch ? 'match' : 'no-match';
+                        
+                        showResult('receiver-result', 
+                            `<div class="status-item">
+                                <span class="status-label">Message:</span> ${data.message || 'N/A'}
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Received Hash:</span> ${data.hash || 'N/A'}
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Result:</span> <span class="${resultClass}">${data.result}</span>
+                            </div>`, 
+                            isMatch ? 'success' : 'error');
+                    } else {
+                        showResult('receiver-result', 
+                            'No data received yet. Waiting for sender to transmit message...', 
+                            'info');
+                    }
+                } else {
+                    showResult('receiver-result', 
+                        `Error: ${data.error || 'Unknown error occurred'}`, 
+                        'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                let errorMessage = 'Connection error. Make sure the receiver server is running on localhost:8080.';
+                
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Cannot connect to receiver server. Is it running on localhost:8080?';
+                } else if (error.message.includes('NetworkError')) {
+                    errorMessage = 'Network error. Check your connection and server status.';
+                }
+                
+                showResult('receiver-result', errorMessage, 'error');
+            } finally {
+                setLoading('status-btn', false);
+            }
+        }
+
+        // Student comment: Auto-refresh status every 5 seconds in receiver mode
+        let autoRefreshInterval;
+        
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(() => {
+                if (!document.getElementById('status-btn').disabled) {
+                    checkStatus();
+                }
+            }, 5000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+
+        // Student comment: Start auto-refresh when page loads
+        window.addEventListener('load', () => {
+            startAutoRefresh();
+        });
+
+        // Student comment: Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            stopAutoRefresh();
+        });
+
+        // Student comment: Handle Enter key in input fields
+        document.getElementById('message').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        document.getElementById('secret').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        document.getElementById('receiver-ip').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
