@@ -73,19 +73,27 @@ int parse_json_body(const char *body, char *message, char *secret, char *receive
     
     if (!msg_start || !secret_start || !ip_start) return 0;
     
-    msg_start += 10;  // Skip "message":
-    secret_start += 9; // Skip "secret":
-    ip_start += 14;    // Skip "receiver_ip":
+    msg_start += 11;  // Skip "message":" (11 chars)
+    secret_start += 10; // Skip "secret":" (10 chars)
+    ip_start += 15;    // Skip "receiver_ip":" (15 chars)
+    
+    printf("[DEBUG] After offset - msg_start: %.20s..., secret_start: %.20s..., ip_start: %.20s...\n", 
+           msg_start, secret_start, ip_start);
     
     char *msg_end = strstr(msg_start, "\"");
     char *secret_end = strstr(secret_start, "\"");
     char *ip_end = strstr(ip_start, "\"");
+    
+    printf("[DEBUG] Found end quotes - msg_end: %s, secret_end: %s, ip_end: %s\n",
+           msg_end ? "yes" : "no", secret_end ? "yes" : "no", ip_end ? "yes" : "no");
     
     if (!msg_end || !secret_end || !ip_end) return 0;
     
     int msg_len = msg_end - msg_start;
     int secret_len = secret_end - secret_start;
     int ip_len = ip_end - ip_start;
+    
+    printf("[DEBUG] String lengths - msg: %d, secret: %d, ip: %d\n", msg_len, secret_len, ip_len);
     
     strncpy(message, msg_start, msg_len);
     message[msg_len] = '\0';
