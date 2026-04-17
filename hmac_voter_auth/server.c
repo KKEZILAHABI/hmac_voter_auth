@@ -45,7 +45,7 @@ void hash_to_hex(const unsigned char *hash, char *hex_string) {
     hex_string[64] = '\0';
 }
 
-// Student comment: Simple HTTP response helper
+// Student comment: Simple HTTP response helper with proper CORS headers
 void send_http_response(int client_fd, const char *status_code, const char *content_type, const char *body) {
     char response[MAX_BUFFER_SIZE];
     snprintf(response, sizeof(response), 
@@ -53,6 +53,8 @@ void send_http_response(int client_fd, const char *status_code, const char *cont
              "Content-Type: %s\r\n"
              "Content-Length: %zu\r\n"
              "Access-Control-Allow-Origin: *\r\n"
+             "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+             "Access-Control-Allow-Headers: Content-Type\r\n"
              "\r\n%s",
              status_code, content_type, strlen(body), body);
     send(client_fd, response, strlen(response), 0);
@@ -265,17 +267,24 @@ void* http_server(void* arg) {
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0';
             
-            if (mode == 1 && strstr(buffer, "POST /")) {
+            // Student comment: Handle CORS preflight requests
+            if (strstr(buffer, "OPTIONS /") || strstr(buffer, "OPTIONS /status")) {
+                send_http_response(client_fd, "200 OK", "text/plain", "");
+            } else if (mode == 1 && (strstr(buffer, "POST /") || strstr(buffer, "POST / "))) {
                 // Student comment: Find the JSON body
                 char *body_start = strstr(buffer, "\r\n\r\n");
                 if (body_start) {
                     body_start += 4;
                     handle_sender_post(client_fd, body_start);
+                } else {
+                    send_http_response(client_fd, "400 Bad Request", "application/json", 
+                                      "{\"error\":\"No request body found\"}");
                 }
             } else if (mode == 2 && strstr(buffer, "GET /status")) {
                 handle_receiver_status(client_fd);
             } else {
-                send_http_response(client_fd, "404 Not Found", "text/plain", "Not Found");
+                send_http_response(client_fd, "404 Not Found", "application/json", 
+                                  "{\"error\":\"Endpoint not found\"}");
             }
         }
         close(client_fd);
