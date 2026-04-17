@@ -20,7 +20,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 600px;
             margin: 0 auto;
         }
 
@@ -41,21 +41,11 @@
             opacity: 0.9;
         }
 
-        .sections {
-            display: flex;
-            gap: 30px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
         .section {
             background: white;
             border-radius: 15px;
             padding: 30px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            flex: 1;
-            min-width: 350px;
-            max-width: 500px;
         }
 
         .section h2 {
@@ -186,16 +176,16 @@
             100% { transform: rotate(360deg); }
         }
 
+        .error-message {
+            text-align: center;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: #742a2a;
+        }
+
         @media (max-width: 768px) {
-            .sections {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .section {
-                max-width: 100%;
-            }
-
             .header h1 {
                 font-size: 2rem;
             }
@@ -205,73 +195,162 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1> HMAC Voter Authentication </h1>
+            <h1>HMAC Voter Authentication</h1>
             <p>Secure message authentication using SHA-256</p>
         </div>
 
-        <div class="sections">
-            <!-- Section 1: Sender -->
-            <div class="section">
-                <h2>Sender - Compute & Send Hash</h2>
-                
-                <div class="form-group">
-                    <label for="message">Message:</label>
-                    <input type="text" id="message" placeholder="Enter your message here" value="Vote for candidate A">
-                </div>
-
-                <div class="form-group">
-                    <label for="secret">Secret:</label>
-                    <input type="text" id="secret" placeholder="Shared secret key" value="shared_secret_123">
-                </div>
-
-                <div class="form-group">
-                    <label for="receiver-ip">Receiver IP:</label>
-                    <input type="text" id="receiver-ip" placeholder="Receiver IP address" value="192.168.1.100">
-                </div>
-
-                <button id="send-btn" onclick="sendMessage()">Compute & Send</button>
-
-                <div id="sender-result"></div>
-            </div>
-
-            <!-- Section 2: Receiver -->
-            <div class="section">
-                <h2>Receiver - Verify Incoming Hash</h2>
-                
-                <button id="status-btn" onclick="checkStatus()">Check Status</button>
-
-                <div id="receiver-result"></div>
-            </div>
+        <div id="app-content">
+            <!-- Content will be dynamically loaded based on server mode -->
         </div>
     </div>
 
     <script>
-        // Student comment: Helper function to create result elements
+        let currentMode = null;
+        let autoRefreshInterval = null;
+
+        // Helper function to create result elements
         function showResult(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
-            element.className = `result ${type}`;
-            element.innerHTML = message;
-        }
-
-        // Student comment: Show loading state
-        function setLoading(buttonId, loading = true) {
-            const button = document.getElementById(buttonId);
-            if (loading) {
-                button.disabled = true;
-                button.innerHTML = '<span class="loading"></span>Processing...';
-            } else {
-                button.disabled = false;
-                button.innerHTML = buttonId === 'send-btn' ? 'Compute & Send' : 'Check Status';
+            if (element) {
+                element.className = `result ${type}`;
+                element.innerHTML = message;
             }
         }
 
-        // Student comment: Send message to server
+        // Show loading state
+        function setLoading(buttonId, loading = true) {
+            const button = document.getElementById(buttonId);
+            if (button) {
+                if (loading) {
+                    button.disabled = true;
+                    button.innerHTML = '<span class="loading"></span>Processing...';
+                } else {
+                    button.disabled = false;
+                    // Restore original button text based on button ID
+                    if (buttonId === 'send-btn') {
+                        button.innerHTML = 'Compute & Send';
+                    } else if (buttonId === 'set-secret-btn') {
+                        button.innerHTML = 'Set Secret';
+                    } else if (buttonId === 'status-btn') {
+                        button.innerHTML = 'Check Status';
+                    }
+                }
+            }
+        }
+
+        // Fetch server mode and initialize interface
+        async function initializeApp() {
+            try {
+                const response = await fetch('http://localhost:8080/mode');
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentMode = data.mode;
+                    if (currentMode === 'sender') {
+                        showSenderInterface();
+                    } else if (currentMode === 'receiver') {
+                        showReceiverInterface();
+                    }
+                } else {
+                    showError('Could not determine server mode');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Could not connect to server');
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const appContent = document.getElementById('app-content');
+            appContent.innerHTML = `
+                <div class="error-message">
+                    <h2>Connection Error</h2>
+                    <p>${message}</p>
+                    <p>Please make sure the server is running on localhost:8080</p>
+                </div>
+            `;
+        }
+
+        // Show sender interface
+        function showSenderInterface() {
+            const appContent = document.getElementById('app-content');
+            appContent.innerHTML = `
+                <div class="section">
+                    <h2>Sender - Compute & Send Hash</h2>
+                    
+                    <div class="form-group">
+                        <label for="message">Message:</label>
+                        <input type="text" id="message" placeholder="Enter your message here" value="Vote for candidate A">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="secret">Secret:</label>
+                        <input type="text" id="secret" placeholder="Shared secret key" value="shared_secret_123">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="receiver-ip">Receiver IP:</label>
+                        <input type="text" id="receiver-ip" placeholder="Receiver IP address" value="127.0.0.1">
+                    </div>
+
+                    <button id="send-btn" onclick="sendMessage()">Compute & Send</button>
+
+                    <div id="sender-result"></div>
+                </div>
+            `;
+
+            // Add enter key listeners
+            document.getElementById('message').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            document.getElementById('secret').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            document.getElementById('receiver-ip').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        }
+
+        // Show receiver interface
+        function showReceiverInterface() {
+            const appContent = document.getElementById('app-content');
+            appContent.innerHTML = `
+                <div class="section">
+                    <h2>Receiver - Verify Incoming Hash</h2>
+                    
+                    <div class="form-group">
+                        <label for="secret">Secret:</label>
+                        <input type="text" id="secret" placeholder="Shared secret key">
+                    </div>
+
+                    <button id="set-secret-btn" onclick="setSecret()">Set Secret</button>
+
+                    <div id="secret-result"></div>
+
+                    <div style="margin-top: 30px;">
+                        <button id="status-btn" onclick="checkStatus()">Check Status</button>
+                    </div>
+
+                    <div id="receiver-result"></div>
+                </div>
+            `;
+
+            // Add enter key listener for secret input
+            document.getElementById('secret').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') setSecret();
+            });
+
+            // Start auto-refresh for status
+            startAutoRefresh();
+        }
+
+        // Send message to server (sender mode)
         async function sendMessage() {
             const message = document.getElementById('message').value.trim();
             const secret = document.getElementById('secret').value.trim();
             const receiverIp = document.getElementById('receiver-ip').value.trim();
 
-            // Student comment: Validation
             if (!message || !secret || !receiverIp) {
                 showResult('sender-result', 'Please fill in all fields', 'error');
                 return;
@@ -280,7 +359,7 @@
             setLoading('send-btn', true);
 
             try {
-                const response = await fetch('http://localhost:8080', {
+                const response = await fetch('http://localhost:8080/send', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -307,21 +386,54 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                let errorMessage = 'Connection error. Make sure the sender server is running on localhost:8080.';
-                
-                if (error.message.includes('Failed to fetch')) {
-                    errorMessage = 'Cannot connect to sender server. Is it running on localhost:8080?';
-                } else if (error.message.includes('NetworkError')) {
-                    errorMessage = 'Network error. Check your connection and server status.';
-                }
-                
-                showResult('sender-result', errorMessage, 'error');
+                showResult('sender-result', 'Connection error. Make sure the sender server is running on localhost:8080.', 'error');
             } finally {
                 setLoading('send-btn', false);
             }
         }
 
-        // Student comment: Check receiver status
+        // Set secret (receiver mode)
+        async function setSecret() {
+            const secret = document.getElementById('secret').value.trim();
+
+            if (!secret) {
+                showResult('secret-result', 'Please enter a secret', 'error');
+                return;
+            }
+
+            setLoading('set-secret-btn', true);
+
+            try {
+                const response = await fetch('http://localhost:8080/set_secret', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        secret: secret
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('secret-result', 'Secret set successfully!', 'success');
+                    // Clear the secret input for security
+                    document.getElementById('secret').value = '';
+                } else {
+                    showResult('secret-result', 
+                        `Error: ${data.error || 'Unknown error occurred'}`, 
+                        'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showResult('secret-result', 'Connection error. Make sure the receiver server is running on localhost:8080.', 'error');
+            } finally {
+                setLoading('set-secret-btn', false);
+            }
+        }
+
+        // Check receiver status
         async function checkStatus() {
             setLoading('status-btn', true);
 
@@ -336,10 +448,10 @@
                         
                         showResult('receiver-result', 
                             `<div class="status-item">
-                                <span class="status-label">Message:</span> ${data.message || 'N/A'}
+                                <span class="status-label">Received message:</span> ${data.message || 'N/A'}
                             </div>
                             <div class="status-item">
-                                <span class="status-label">Received Hash:</span> ${data.hash || 'N/A'}
+                                <span class="status-label">Received hash:</span> ${data.hash || 'N/A'}
                             </div>
                             <div class="status-item">
                                 <span class="status-label">Result:</span> <span class="${resultClass}">${data.result}</span>
@@ -357,26 +469,17 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                let errorMessage = 'Connection error. Make sure the receiver server is running on localhost:8080.';
-                
-                if (error.message.includes('Failed to fetch')) {
-                    errorMessage = 'Cannot connect to receiver server. Is it running on localhost:8080?';
-                } else if (error.message.includes('NetworkError')) {
-                    errorMessage = 'Network error. Check your connection and server status.';
-                }
-                
-                showResult('receiver-result', errorMessage, 'error');
+                showResult('receiver-result', 'Connection error. Make sure the receiver server is running on localhost:8080.', 'error');
             } finally {
                 setLoading('status-btn', false);
             }
         }
 
-        // Student comment: Auto-refresh status every 5 seconds in receiver mode
-        let autoRefreshInterval;
-        
+        // Auto-refresh status every 5 seconds in receiver mode
         function startAutoRefresh() {
+            stopAutoRefresh();
             autoRefreshInterval = setInterval(() => {
-                if (!document.getElementById('status-btn').disabled) {
+                if (currentMode === 'receiver' && document.getElementById('status-btn') && !document.getElementById('status-btn').disabled) {
                     checkStatus();
                 }
             }, 5000);
@@ -385,30 +488,18 @@
         function stopAutoRefresh() {
             if (autoRefreshInterval) {
                 clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
             }
         }
 
-        // Student comment: Start auto-refresh when page loads
-        window.addEventListener('load', () => {
-            startAutoRefresh();
-        });
-
-        // Student comment: Clean up on page unload
+        // Clean up on page unload
         window.addEventListener('beforeunload', () => {
             stopAutoRefresh();
         });
 
-        // Student comment: Handle Enter key in input fields
-        document.getElementById('message').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        document.getElementById('secret').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
-
-        document.getElementById('receiver-ip').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
+        // Initialize app when page loads
+        window.addEventListener('load', () => {
+            initializeApp();
         });
     </script>
 </body>
