@@ -62,9 +62,14 @@ void send_http_response(int client_fd, const char *status_code, const char *cont
 
 // Student comment: Parse JSON body to extract message, secret, and receiver_ip
 int parse_json_body(const char *body, char *message, char *secret, char *receiver_ip) {
+    printf("[DEBUG] Parsing JSON body: %.200s...\n", body);
+    
     char *msg_start = strstr(body, "\"message\":\"");
     char *secret_start = strstr(body, "\"secret\":\"");
     char *ip_start = strstr(body, "\"receiver_ip\":\"");
+    
+    printf("[DEBUG] Found fields - msg: %s, secret: %s, ip: %s\n", 
+           msg_start ? "yes" : "no", secret_start ? "yes" : "no", ip_start ? "yes" : "no");
     
     if (!msg_start || !secret_start || !ip_start) return 0;
     
@@ -90,6 +95,8 @@ int parse_json_body(const char *body, char *message, char *secret, char *receive
     
     strncpy(receiver_ip, ip_start, ip_len);
     receiver_ip[ip_len] = '\0';
+    
+    printf("[DEBUG] Parsed - message: '%s', secret: '%s', ip: '%s'\n", message, secret, receiver_ip);
     
     return 1;
 }
@@ -267,22 +274,35 @@ void* http_server(void* arg) {
         if (bytes_received > 0) {
             buffer[bytes_received] = '\0';
             
+            // Student comment: Debug: Print received request
+            printf("[DEBUG] Received request (mode %d): %.100s...\n", mode, buffer);
+            
             // Student comment: Handle CORS preflight requests
             if (strstr(buffer, "OPTIONS /") || strstr(buffer, "OPTIONS /status")) {
+                printf("[DEBUG] Handling OPTIONS request\n");
                 send_http_response(client_fd, "200 OK", "text/plain", "");
             } else if (mode == 1 && (strstr(buffer, "POST /") || strstr(buffer, "POST / "))) {
+                printf("[DEBUG] Handling POST request in sender mode\n");
                 // Student comment: Find the JSON body
                 char *body_start = strstr(buffer, "\r\n\r\n");
                 if (body_start) {
                     body_start += 4;
+                    printf("[DEBUG] Found body: %.100s...\n", body_start);
                     handle_sender_post(client_fd, body_start);
                 } else {
+                    printf("[DEBUG] No request body found\n");
                     send_http_response(client_fd, "400 Bad Request", "application/json", 
                                       "{\"error\":\"No request body found\"}");
                 }
             } else if (mode == 2 && strstr(buffer, "GET /status")) {
+                printf("[DEBUG] Handling GET /status request in receiver mode\n");
                 handle_receiver_status(client_fd);
+            } else if (mode == 1 && strstr(buffer, "GET /status")) {
+                printf("[DEBUG] Handling GET /status request in sender mode\n");
+                send_http_response(client_fd, "200 OK", "application/json", 
+                                  "{\"status\":\"sender_mode\",\"message\":\"Use POST to send messages\"}");
             } else {
+                printf("[DEBUG] No matching route found\n");
                 send_http_response(client_fd, "404 Not Found", "application/json", 
                                   "{\"error\":\"Endpoint not found\"}");
             }
