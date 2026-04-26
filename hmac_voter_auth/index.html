@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HMAC Voter Authentication</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -18,197 +13,45 @@
             padding: 20px;
             color: #333;
         }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .section {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        .section h2 {
-            color: #4a5568;
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 10px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #4a5568;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .section { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .section h2 { color: #4a5568; margin-bottom: 20px; font-size: 1.5rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568; }
+        input[type="text"] { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; }
+        input[type="text"]:focus { outline: none; border-color: #667eea; }
         button {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;
         }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            word-break: break-all;
-        }
-
-        .result.success {
-            background: #f0fff4;
-            border: 1px solid #9ae6b4;
-            color: #22543d;
-        }
-
-        .result.error {
-            background: #fff5f5;
-            border: 1px solid #feb2b2;
-            color: #742a2a;
-        }
-
-        .result.info {
-            background: #ebf8ff;
-            border: 1px solid #90cdf4;
-            color: #2c5282;
-        }
-
-        .status-item {
-            margin-bottom: 10px;
-            padding: 8px;
-            background: #f7fafc;
-            border-radius: 5px;
-        }
-
-        .status-label {
-            font-weight: 600;
-            color: #4a5568;
-            display: inline-block;
-            min-width: 120px;
-        }
-
-        .match {
-            color: #22543d;
-            font-weight: bold;
-        }
-
-        .no-match {
-            color: #742a2a;
-            font-weight: bold;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 10px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            text-align: center;
-            background: white;
-            border-radius: 15px;
-            padding: 40px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            color: #742a2a;
-        }
-
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2rem;
-            }
-        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .result { margin-top: 20px; padding: 15px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px; word-break: break-all; }
+        .result.success { background: #f0fff4; border: 1px solid #9ae6b4; color: #22543d; }
+        .result.error { background: #fff5f5; border: 1px solid #feb2b2; color: #742a2a; }
+        .result.info { background: #ebf8ff; border: 1px solid #90cdf4; color: #2c5282; }
+        .status-item { margin-bottom: 10px; padding: 8px; background: #f7fafc; border-radius: 5px; }
+        .status-label { font-weight: 600; color: #4a5568; display: inline-block; min-width: 120px; }
+        /* MODIFIED: Updated match classes to explicitly render valid and invalid states in green and red */
+        .match { color: green; font-weight: bold; }
+        .no-match { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>HMAC Voter Authentication</h1>
-            <p>Secure message authentication using SHA-256</p>
+            <p>Secure message authentication using SHA-256 (MitM Simulation)</p>
         </div>
-
-        <div id="app-content">
-            <!-- Content will be dynamically loaded based on server mode -->
-        </div>
+        <div id="app-content"></div>
     </div>
 
     <script>
         let currentMode = null;
         let autoRefreshInterval = null;
 
-        // Helper function to create result elements
         function showResult(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
             if (element) {
@@ -217,141 +60,97 @@
             }
         }
 
-        // Show loading state
         function setLoading(buttonId, loading = true) {
             const button = document.getElementById(buttonId);
             if (button) {
                 if (loading) {
                     button.disabled = true;
-                    button.innerHTML = '<span class="loading"></span>Processing...';
+                    button.innerHTML = 'Processing...';
                 } else {
                     button.disabled = false;
-                    // Restore original button text based on button ID
-                    if (buttonId === 'send-btn') {
-                        button.innerHTML = 'Compute & Send';
-                    } else if (buttonId === 'set-secret-btn') {
-                        button.innerHTML = 'Set Secret';
-                    } else if (buttonId === 'status-btn') {
-                        button.innerHTML = 'Check Status';
-                    }
+                    if (buttonId === 'send-btn') button.innerHTML = 'Compute & Send';
+                    else if (buttonId === 'set-secret-btn') button.innerHTML = 'Set Salt';
+                    else if (buttonId === 'status-btn') button.innerHTML = 'Check Status';
                 }
             }
         }
 
-        // Fetch server mode and initialize interface
         async function initializeApp() {
             try {
-                const response = await fetch('http://localhost:8080/mode');
+                // MODIFIED: Switched from absolute URL to relative path to handle split port environments
+                const response = await fetch('/mode');
                 const data = await response.json();
-
                 if (response.ok) {
                     currentMode = data.mode;
-                    if (currentMode === 'sender') {
-                        showSenderInterface();
-                    } else if (currentMode === 'receiver') {
-                        showReceiverInterface();
-                    }
-                } else {
-                    showError('Could not determine server mode');
+                    if (currentMode === 'sender') showSenderInterface();
+                    else if (currentMode === 'receiver') showReceiverInterface();
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showError('Could not connect to server');
             }
         }
 
-        // Show error message
-        function showError(message) {
-            const appContent = document.getElementById('app-content');
-            appContent.innerHTML = `
-                <div class="error-message">
-                    <h2>Connection Error</h2>
-                    <p>${message}</p>
-                    <p>Please make sure the server is running on localhost:8080</p>
-                </div>
-            `;
-        }
-
-        // Show sender interface
         function showSenderInterface() {
             const appContent = document.getElementById('app-content');
+            // MODIFIED: Maintained MitM message editing field, user can dictate salt and target ip dynamically
             appContent.innerHTML = `
                 <div class="section">
                     <h2>Sender - Compute & Send Hash</h2>
-                    
                     <div class="form-group">
-                        <label for="message">Message:</label>
-                        <input type="text" id="message" placeholder="Enter your message here" value="Vote for candidate A">
+                        <label for="message">Original Message:</label>
+                        <input type="text" id="message" value="Vote for candidate A">
                     </div>
-
+                    <div class="form-group" style="background:#fff5f5; padding:10px; border-radius:5px; border:1px solid #feb2b2;">
+                        <label for="message2" style="color:#742a2a;">Tampered Message (MitM Simulation):</label>
+                        <input type="text" id="message2" value="Vote for candidate A" style="border-color:#feb2b2;">
+                        <small style="color:#742a2a; display:block; margin-top:5px;">Edit this to simulate intercepting and modifying the message before transmission.</small>
+                    </div>
                     <div class="form-group">
-                        <label for="secret">Secret:</label>
-                        <input type="text" id="secret" placeholder="Shared secret key" value="shared_secret_123">
+                        <label for="salt">Salt:</label>
+                        <input type="text" id="salt" placeholder="Shared salt value" value="shared_salt_123">
                     </div>
-
                     <div class="form-group">
                         <label for="receiver-ip">Receiver IP:</label>
                         <input type="text" id="receiver-ip" placeholder="Receiver IP address" value="127.0.0.1">
                     </div>
-
                     <button id="send-btn" onclick="sendMessage()">Compute & Send</button>
-
                     <div id="sender-result"></div>
                 </div>
             `;
 
-            // Add enter key listeners
-            document.getElementById('message').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
-            document.getElementById('secret').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
-            });
-            document.getElementById('receiver-ip').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') sendMessage();
+            // Auto-populate the MitM box if the user types in the Original Message box
+            document.getElementById('message').addEventListener('input', function(e) {
+                document.getElementById('message2').value = e.target.value;
             });
         }
 
-        // Show receiver interface
         function showReceiverInterface() {
             const appContent = document.getElementById('app-content');
             appContent.innerHTML = `
                 <div class="section">
                     <h2>Receiver - Verify Incoming Hash</h2>
-                    
                     <div class="form-group">
-                        <label for="secret">Secret:</label>
-                        <input type="text" id="secret" placeholder="Shared secret key">
+                        <label for="salt">Salt:</label>
+                        <input type="text" id="salt" placeholder="Shared salt value">
                     </div>
-
-                    <button id="set-secret-btn" onclick="setSecret()">Set Secret</button>
-
+                    <button id="set-secret-btn" onclick="setSecret()">Set Salt</button>
                     <div id="secret-result"></div>
-
                     <div style="margin-top: 30px;">
                         <button id="status-btn" onclick="checkStatus()">Check Status</button>
                     </div>
-
                     <div id="receiver-result"></div>
                 </div>
             `;
-
-            // Add enter key listener for secret input
-            document.getElementById('secret').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') setSecret();
-            });
-
-            // Start auto-refresh for status
             startAutoRefresh();
         }
 
-        // Send message to server (sender mode)
         async function sendMessage() {
             const message = document.getElementById('message').value.trim();
-            const secret = document.getElementById('secret').value.trim();
+            const message2 = document.getElementById('message2').value.trim();
+            const salt = document.getElementById('salt').value.trim();
             const receiverIp = document.getElementById('receiver-ip').value.trim();
 
-            if (!message || !secret || !receiverIp) {
+            if (!message || !message2 || !salt || !receiverIp) {
                 showResult('sender-result', 'Please fill in all fields', 'error');
                 return;
             }
@@ -359,123 +158,97 @@
             setLoading('send-btn', true);
 
             try {
-                const response = await fetch('http://localhost:8080/send', {
+                // MODIFIED: Switched from absolute URL to relative path
+                const response = await fetch('/send', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
+                    // MODIFIED: Transmit original string and altered payload logic handling to the C backend
                     body: JSON.stringify({
                         message: message,
-                        secret: secret,
+                        message2: message2,
+                        secret: salt,
                         receiver_ip: receiverIp
                     })
                 });
 
                 const data = await response.json();
-
                 if (response.ok) {
                     showResult('sender-result', 
                         `Sent successfully!<br><br>` +
-                        `<strong>Hash:</strong><br>${data.hash}<br><br>` +
-                        `<strong>Status:</strong> Sent to ${receiverIp}`, 
+                        `<strong>Original Hash:</strong><br>${data.hash}<br><br>` +
+                        `<strong>Status:</strong> Transmitted payload to ${receiverIp}`, 
                         'success');
                 } else {
-                    showResult('sender-result', 
-                        `Error: ${data.error || 'Unknown error occurred'}`, 
-                        'error');
+                    showResult('sender-result', `Error: ${data.error}`, 'error');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                showResult('sender-result', 'Connection error. Make sure the sender server is running on localhost:8080.', 'error');
+                showResult('sender-result', 'Connection error.', 'error');
             } finally {
                 setLoading('send-btn', false);
             }
         }
 
-        // Set secret (receiver mode)
         async function setSecret() {
-            const secret = document.getElementById('secret').value.trim();
-
-            if (!secret) {
-                showResult('secret-result', 'Please enter a secret', 'error');
-                return;
-            }
+            const salt = document.getElementById('salt').value.trim();
+            if (!salt) return;
 
             setLoading('set-secret-btn', true);
 
             try {
-                const response = await fetch('http://localhost:8080/set_secret', {
+                // MODIFIED: Switched from absolute URL to relative path
+                const response = await fetch('/set_secret', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        secret: secret
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret: salt })
                 });
 
-                const data = await response.json();
-
                 if (response.ok) {
-                    showResult('secret-result', 'Secret set successfully!', 'success');
-                    // Clear the secret input for security
-                    document.getElementById('secret').value = '';
-                } else {
-                    showResult('secret-result', 
-                        `Error: ${data.error || 'Unknown error occurred'}`, 
-                        'error');
+                    showResult('secret-result', 'Salt set successfully!', 'success');
+                    document.getElementById('salt').value = '';
                 }
             } catch (error) {
-                console.error('Error:', error);
-                showResult('secret-result', 'Connection error. Make sure the receiver server is running on localhost:8080.', 'error');
+                showResult('secret-result', 'Connection error.', 'error');
             } finally {
                 setLoading('set-secret-btn', false);
             }
         }
 
-        // Check receiver status
         async function checkStatus() {
             setLoading('status-btn', true);
 
             try {
-                const response = await fetch('http://localhost:8080/status');
+                // MODIFIED: Switched from absolute URL to relative path
+                const response = await fetch('/status');
                 const data = await response.json();
 
                 if (response.ok) {
                     if (data.result && data.result !== 'No data received yet') {
-                        const isMatch = data.result.includes('Match');
+                        // MODIFIED: Conditional text coloring mapped directly to validation output
+                        const isMatch = data.result.includes('Match Valid');
                         const resultClass = isMatch ? 'match' : 'no-match';
                         
                         showResult('receiver-result', 
                             `<div class="status-item">
-                                <span class="status-label">Received message:</span> ${data.message || 'N/A'}
+                                <span class="status-label">Received payload:</span> <span class="${resultClass}">${data.message}</span>
                             </div>
                             <div class="status-item">
-                                <span class="status-label">Received hash:</span> ${data.hash || 'N/A'}
+                                <span class="status-label">Received hash:</span> ${data.hash}
                             </div>
                             <div class="status-item">
                                 <span class="status-label">Result:</span> <span class="${resultClass}">${data.result}</span>
                             </div>`, 
                             isMatch ? 'success' : 'error');
                     } else {
-                        showResult('receiver-result', 
-                            'No data received yet. Waiting for sender to transmit message...', 
-                            'info');
+                        showResult('receiver-result', 'Waiting for transmission...', 'info');
                     }
-                } else {
-                    showResult('receiver-result', 
-                        `Error: ${data.error || 'Unknown error occurred'}`, 
-                        'error');
                 }
             } catch (error) {
-                console.error('Error:', error);
-                showResult('receiver-result', 'Connection error. Make sure the receiver server is running on localhost:8080.', 'error');
+                showResult('receiver-result', 'Connection error.', 'error');
             } finally {
                 setLoading('status-btn', false);
             }
         }
 
-        // Auto-refresh status every 5 seconds in receiver mode
         function startAutoRefresh() {
             stopAutoRefresh();
             autoRefreshInterval = setInterval(() => {
@@ -492,15 +265,8 @@
             }
         }
 
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-            stopAutoRefresh();
-        });
-
-        // Initialize app when page loads
-        window.addEventListener('load', () => {
-            initializeApp();
-        });
+        window.addEventListener('beforeunload', stopAutoRefresh);
+        window.addEventListener('load', initializeApp);
     </script>
 </body>
 </html>
