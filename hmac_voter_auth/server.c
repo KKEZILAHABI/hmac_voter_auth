@@ -12,24 +12,23 @@
 #include <sys/stat.h>
 
 #define MAX_BUFFER_SIZE 4096
-// MODIFIED: Implemented segregated HTTP ports for sender and receiver local operation to bypass socket binding conflicts
 #define SENDER_HTTP_PORT 8080
 #define RECEIVER_HTTP_PORT 8081
 #define TCP_PORT 9090
 
+// MODIFIED: Replaced AuthResult with a PayloadBuffer to hold incoming data without verifying
 typedef struct {
-    char result[64];      
-    char hash[65];        
     char message[MAX_BUFFER_SIZE];  
-    int is_valid;        
-} AuthResult;
+    char hash[65];        
+    int has_data;        
+} PayloadBuffer;
 
 typedef struct {
     char secret[256];    
     int is_set;          
 } SecretStorage;
 
-AuthResult global_result = {0};  
+PayloadBuffer global_buffer = {0};  
 SecretStorage global_secret = {0};  
 
 void compute_sha256(const char *data, int data_len, unsigned char *hash) {
@@ -62,9 +61,7 @@ void send_http_response(int client_fd, const char *status_code, const char *cont
              "\r\n",
              status_code, content_type, strlen(body));
              
-    // Send headers first
     send(client_fd, headers, strlen(headers), 0);
-    // Send the actual payload directly
     send(client_fd, body, strlen(body), 0);
 }
 
@@ -96,9 +93,6 @@ void serve_index_html(int client_fd) {
     free(content);
 }
 
-/* * MODIFIED: Maintained message2 parsing to extract the tampered payload. 
- * Expected JSON payload format integrates "message2".
- */
 int parse_json_body(const char *body, char *message, char *message2, char *secret, char *receiver_ip) {
     char *msg_start = strstr(body, "\"message\":\"");
     char *msg2_start = strstr(body, "\"message2\":\"");
@@ -153,14 +147,9 @@ int parse_secret_body(const char *body, char *secret) {
     return 1;
 }
 
-/*
- * MODIFIED: Standard MitM workflow implementation.
- * Computes hash mapping to `message || salt`.
- * Transmits `message2 | hash` over TCP stack to receiver vector.
- */
 void handle_sender_post(int client_fd, const char *body) {
     char message[MAX_BUFFER_SIZE] = {0};
-    char message2[MAX_BUFFER_SIZE] = {0}; // Tampered message
+    char message2[MAX_BUFFER_SIZE] = {0}; 
     char secret[256] = {0};
     char receiver_ip[64] = {0};
     
@@ -170,7 +159,6 @@ void handle_sender_post(int client_fd, const char *body) {
         return;
     }
     
-    // Hash is strictly computed on the ORIGINAL message + salt
     char combined[MAX_BUFFER_SIZE + 256];
     snprintf(combined, sizeof(combined), "%s%s", message, secret);
     
@@ -201,7 +189,6 @@ void handle_sender_post(int client_fd, const char *body) {
         return;
     }
     
-    // Send the TAMPERED message with the ORIGINAL hash
     char tcp_message[MAX_BUFFER_SIZE + 65];
     snprintf(tcp_message, sizeof(tcp_message), "%s|%s", message2, hex_hash);
     send(tcp_socket, tcp_message, strlen(tcp_message), 0);
@@ -234,50 +221,42 @@ void handle_receiver_tcp(int client_fd) {
     char *message = buffer;
     char *received_hash = separator + 1;
     
-    if (!global_secret.is_set) {
-        strcpy(global_result.result, "No Match (Salt not set)");
-        global_result.is_valid = 0;
-        strcpy(global_result.hash, received_hash);
-        strncpy(global_result.message, message, MAX_BUFFER_SIZE - 1);
-        global_result.message[MAX_BUFFER_SIZE - 1] = '\0';
-        close(client_fd);
-        return;
-    }
+    // MODIFIED: Buffer the data immediately without verification. 
+    strncpy(global_buffer.message, message, MAX_BUFFER_SIZE - 1);
+    global_buffer.message[MAX_BUFFER_SIZE - 1] = '\0';
     
-    char combined[MAX_BUFFER_SIZE + 256];
-    snprintf(combined, sizeof(combined), "%s%s", message, global_secret.secret);
+    strncpy(global_buffer.hash, received_hash, 64);
+    global_buffer.hash[64] = '\0';
     
-    unsigned char computed_hash[SHA256_DIGEST_LENGTH];
-    compute_sha256(combined, strlen(combined), computed_hash);
-    
-    char computed_hex[65];
-    hash_to_hex(computed_hash, computed_hex);
-    
-    if (strcmp(received_hash, computed_hex) == 0) {
-        strcpy(global_result.result, "Match Valid");
-        global_result.is_valid = 1;
-    } else {
-        strcpy(global_result.result, "No Match (MitM Detected)");
-        global_result.is_valid = 0;
-    }
-    
-    strcpy(global_result.hash, received_hash);
-    strncpy(global_result.message, message, MAX_BUFFER_SIZE - 1);
-    global_result.message[MAX_BUFFER_SIZE - 1] = '\0';
+    global_buffer.has_data = 1;
     
     close(client_fd);
 }
 
 void handle_receiver_status(int client_fd) {
-    char response[MAX_BUFFER_SIZE];
+    char response[MAX_BUFFER_SIZE * 2];
     
-    if (global_result.is_valid || strlen(global_result.message) > 0) {
-        snprintf(response, sizeof(response),
-                 "{\"result\":\"%s\",\"hash\":\"%s\",\"message\":\"%s\"}",
-                 global_result.result, global_result.hash, global_result.message);
+    // MODIFIED: Enforce the salt check, buffer status parsing, and compute hash dynamically
+    if (!global_buffer.has_data) {
+        snprintf(response, sizeof(response), "{\"status\":\"waiting\"}");
+    } else if (!global_secret.is_set) {
+        snprintf(response, sizeof(response), "{\"status\":\"needs_salt\"}");
     } else {
+        char combined[MAX_BUFFER_SIZE + 256];
+        snprintf(combined, sizeof(combined), "%s%s", global_buffer.message, global_secret.secret);
+        
+        unsigned char computed_hash[SHA256_DIGEST_LENGTH];
+        compute_sha256(combined, strlen(combined), computed_hash);
+        
+        char computed_hex[65];
+        hash_to_hex(computed_hash, computed_hex);
+        
+        int is_match = (strcmp(global_buffer.hash, computed_hex) == 0);
+        const char* result_text = is_match ? "Match Valid" : "No Match (MitM Detected)";
+        
         snprintf(response, sizeof(response),
-                 "{\"result\":\"No data received yet\"}");
+                 "{\"status\":\"complete\",\"result\":\"%s\",\"message\":\"%s\",\"received_hash\":\"%s\",\"recalculated_hash\":\"%s\",\"receiver_salt\":\"%s\"}",
+                 result_text, global_buffer.message, global_buffer.hash, computed_hex, global_secret.secret);
     }
     
     send_http_response(client_fd, "200 OK", "application/json", response);
@@ -325,7 +304,6 @@ void* http_server(void* arg) {
     
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = INADDR_ANY;
-    // MODIFIED: Port binding determined by runtime parameter to clear collision bounds
     server_addr.sin_port = htons(mode == 1 ? SENDER_HTTP_PORT : RECEIVER_HTTP_PORT);
     
     if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) return NULL;
@@ -413,13 +391,11 @@ int main(int argc, char *argv[]) {
     
     if (strcmp(argv[1], "sender") == 0) {
         mode = 1;
-        // MODIFIED: Console output for debugging target browser ports 
         printf("Sender node initialized. Launch browser pointing to http://localhost:%d\n", SENDER_HTTP_PORT);
         if (pthread_create(&http_thread, NULL, http_server, &mode) != 0) return 1;
     } 
     else if (strcmp(argv[1], "receiver") == 0) {
         mode = 2;
-        // MODIFIED: Console output for debugging target browser ports 
         printf("Receiver node initialized. Launch browser pointing to http://localhost:%d\n", RECEIVER_HTTP_PORT);
         printf("Receiver mapped to TCP ingestion on port %d\n", TCP_PORT);
         if (pthread_create(&http_thread, NULL, http_server, &mode) != 0) return 1;

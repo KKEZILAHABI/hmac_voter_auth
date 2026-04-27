@@ -33,8 +33,7 @@
         .result.error { background: #fff5f5; border: 1px solid #feb2b2; color: #742a2a; }
         .result.info { background: #ebf8ff; border: 1px solid #90cdf4; color: #2c5282; }
         .status-item { margin-bottom: 10px; padding: 8px; background: #f7fafc; border-radius: 5px; }
-        .status-label { font-weight: 600; color: #4a5568; display: inline-block; min-width: 120px; }
-        /* MODIFIED: Updated match classes to explicitly render valid and invalid states in green and red */
+        .status-label { font-weight: 600; color: #4a5568; display: inline-block; min-width: 140px; }
         .match { color: green; font-weight: bold; }
         .no-match { color: red; font-weight: bold; }
     </style>
@@ -50,7 +49,6 @@
 
     <script>
         let currentMode = null;
-        let autoRefreshInterval = null;
 
         function showResult(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
@@ -77,7 +75,6 @@
 
         async function initializeApp() {
             try {
-                // MODIFIED: Switched from absolute URL to relative path to handle split port environments
                 const response = await fetch('/mode');
                 const data = await response.json();
                 if (response.ok) {
@@ -92,7 +89,6 @@
 
         function showSenderInterface() {
             const appContent = document.getElementById('app-content');
-            // MODIFIED: Maintained MitM message editing field, user can dictate salt and target ip dynamically
             appContent.innerHTML = `
                 <div class="section">
                     <h2>Sender - Compute & Send Hash</h2>
@@ -118,7 +114,6 @@
                 </div>
             `;
 
-            // Auto-populate the MitM box if the user types in the Original Message box
             document.getElementById('message').addEventListener('input', function(e) {
                 document.getElementById('message2').value = e.target.value;
             });
@@ -141,7 +136,7 @@
                     <div id="receiver-result"></div>
                 </div>
             `;
-            startAutoRefresh();
+            // MODIFIED: Disabled auto refresh to enforce checking the buffer explicitly
         }
 
         async function sendMessage() {
@@ -158,11 +153,9 @@
             setLoading('send-btn', true);
 
             try {
-                // MODIFIED: Switched from absolute URL to relative path
                 const response = await fetch('/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    // MODIFIED: Transmit original string and altered payload logic handling to the C backend
                     body: JSON.stringify({
                         message: message,
                         message2: message2,
@@ -195,7 +188,6 @@
             setLoading('set-secret-btn', true);
 
             try {
-                // MODIFIED: Switched from absolute URL to relative path
                 const response = await fetch('/set_secret', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -213,33 +205,40 @@
             }
         }
 
+        // MODIFIED: Restructured checkStatus to handle buffered states and expanded details mapping 
         async function checkStatus() {
             setLoading('status-btn', true);
 
             try {
-                // MODIFIED: Switched from absolute URL to relative path
                 const response = await fetch('/status');
                 const data = await response.json();
 
                 if (response.ok) {
-                    if (data.result && data.result !== 'No data received yet') {
-                        // MODIFIED: Conditional text coloring mapped directly to validation output
+                    if (data.status === 'waiting') {
+                        showResult('receiver-result', 'Waiting for transmission...', 'info');
+                    } else if (data.status === 'needs_salt') {
+                        showResult('receiver-result', 'Payload buffered. Please set a salt to verify and view the message.', 'error');
+                    } else if (data.status === 'complete') {
                         const isMatch = data.result.includes('Match Valid');
                         const resultClass = isMatch ? 'match' : 'no-match';
                         
                         showResult('receiver-result', 
                             `<div class="status-item">
-                                <span class="status-label">Received payload:</span> <span class="${resultClass}">${data.message}</span>
+                                <span class="status-label">Received message:</span> <span class="${resultClass}">${data.message}</span>
                             </div>
                             <div class="status-item">
-                                <span class="status-label">Received hash:</span> ${data.hash}
+                                <span class="status-label">Received hash:</span> ${data.received_hash}
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Receiver salt:</span> ${data.receiver_salt}
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Recalculated hash:</span> <span class="${resultClass}">${data.recalculated_hash}</span>
                             </div>
                             <div class="status-item">
                                 <span class="status-label">Result:</span> <span class="${resultClass}">${data.result}</span>
                             </div>`, 
                             isMatch ? 'success' : 'error');
-                    } else {
-                        showResult('receiver-result', 'Waiting for transmission...', 'info');
                     }
                 }
             } catch (error) {
@@ -249,23 +248,6 @@
             }
         }
 
-        function startAutoRefresh() {
-            stopAutoRefresh();
-            autoRefreshInterval = setInterval(() => {
-                if (currentMode === 'receiver' && document.getElementById('status-btn') && !document.getElementById('status-btn').disabled) {
-                    checkStatus();
-                }
-            }, 5000);
-        }
-
-        function stopAutoRefresh() {
-            if (autoRefreshInterval) {
-                clearInterval(autoRefreshInterval);
-                autoRefreshInterval = null;
-            }
-        }
-
-        window.addEventListener('beforeunload', stopAutoRefresh);
         window.addEventListener('load', initializeApp);
     </script>
 </body>
